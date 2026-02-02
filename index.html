@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!-- <!DOCTYPE html>
 <html>
   <head>
     <title>JS Calculator</title>
@@ -16,4 +16,270 @@
 
     <script src="calculator.js"></script>
   </body>
+</html> -->
+<!DOCTYPE html>
+<html lang="mn">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Calculator</title>
+  <style>
+    :root{
+      --bg:#ffffff;
+      --tile:#eef0f3;
+      --tile2:#e9ebef;
+      --text:#111827;
+      --muted:#6b7280;
+      --accent:#3b82f6;
+      --radius:14px;
+    }
+    *{ box-sizing:border-box; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial; }
+    body{
+      margin:0;
+      min-height:100vh;
+      display:grid;
+      place-items:center;
+      background:#f6f7fb;
+      padding:24px;
+    }
+    .calc{
+      width:min(360px, 92vw);
+      background:var(--bg);
+      border-radius:24px;
+      padding:18px;
+      box-shadow: 0 18px 40px rgba(17,24,39,.10);
+    }
+
+    /* display */
+    .display{
+      height:64px;
+      display:flex;
+      align-items:flex-end;
+      justify-content:flex-end;
+      padding:10px 8px 6px;
+      color:var(--text);
+      font-size:28px;
+      font-weight:600;
+      letter-spacing:.2px;
+      overflow:hidden;
+      white-space:nowrap;
+    }
+    .display small{
+      font-size:14px;
+      font-weight:500;
+      color:var(--muted);
+      margin-right:8px;
+      align-self:center;
+    }
+
+    .grid{
+      display:grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap:12px;
+      margin-top:10px;
+    }
+
+    button{
+      border:0;
+      border-radius:var(--radius);
+      background:var(--tile);
+      height:56px;
+      font-size:18px;
+      font-weight:600;
+      color:var(--text);
+      cursor:pointer;
+      transition: transform .05s ease, filter .15s ease;
+      user-select:none;
+    }
+    button:active{ transform: scale(.98); filter:brightness(.98); }
+
+    /* top function row looks slightly different */
+    .func{ color:var(--accent); background:var(--tile2); }
+
+    /* operators (/,*, -, +, =) */
+    .op{
+      color:var(--accent);
+      background:var(--tile);
+    }
+
+    /* make = a bit stronger */
+    .eq{
+      color:var(--accent);
+      background:var(--tile2);
+      font-weight:800;
+    }
+  </style>
+</head>
+<body>
+  <div class="calc">
+    <div class="display" id="display">0</div>
+
+    <div class="grid">
+      <button class="func" data-action="ac">AC</button>
+      <button class="func" data-action="del">DEL</button>
+      <button class="func" data-action="percent">%</button>
+      <button class="op"   data-op="/">/</button>
+
+      <button data-digit="7">7</button>
+      <button data-digit="8">8</button>
+      <button data-digit="9">9</button>
+      <button class="op" data-op="*">*</button>
+
+      <button data-digit="4">4</button>
+      <button data-digit="5">5</button>
+      <button data-digit="6">6</button>
+      <button class="op" data-op="-">-</button>
+
+      <button data-digit="1">1</button>
+      <button data-digit="2">2</button>
+      <button data-digit="3">3</button>
+      <button class="op" data-op="+">+</button>
+
+      <button data-digit="0">0</button>
+      <button data-digit="00">00</button>
+      <button data-action="dot">.</button>
+      <button class="eq" data-action="eq">=</button>
+    </div>
+  </div>
+
+  <script>
+    const displayEl = document.getElementById("display");
+
+    // state
+    let current = "0";       // string
+    let prev = null;         // number
+    let op = null;           // '+', '-', '*', '/'
+    let justEvaluated = false;
+
+    const fmt = (n) => {
+      if (!Number.isFinite(n)) return "Error";
+      // trim trailing zeros
+      const s = String(n);
+      if (s.includes("e")) return s; // keep scientific notation
+      if (s.includes(".")) return s.replace(/\.?0+$/,"");
+      return s;
+    };
+
+    const setDisplay = () => {
+      if (op && prev !== null) {
+        // show like: 60+20%
+        const left = fmt(prev);
+        const right = current === "" ? "" : current;
+        displayEl.textContent = `${left}${op}${right}`;
+      } else {
+        displayEl.textContent = current === "" ? "0" : current;
+      }
+    };
+
+    const inputDigit = (d) => {
+      if (justEvaluated && !op) { current = "0"; justEvaluated = false; }
+      if (current === "0" && d !== "00") current = d;
+      else if (current === "0" && d === "00") current = "0";
+      else current += d;
+      setDisplay();
+    };
+
+    const inputDot = () => {
+      if (justEvaluated && !op) { current = "0"; justEvaluated = false; }
+      if (!current.includes(".")) current += (current === "" ? "0." : ".");
+      setDisplay();
+    };
+
+    const clearAll = () => {
+      current = "0";
+      prev = null;
+      op = null;
+      justEvaluated = false;
+      setDisplay();
+    };
+
+    const delOne = () => {
+      if (justEvaluated) { clearAll(); return; }
+      if (current.length <= 1) current = "0";
+      else current = current.slice(0, -1);
+      setDisplay();
+    };
+
+    const setOp = (nextOp) => {
+      if (op && prev !== null && current !== "" && !justEvaluated) {
+        // chain operation: 2+3+4 ...
+        equal();
+      }
+      prev = Number(current);
+      op = nextOp;
+      current = "";
+      justEvaluated = false;
+      setDisplay();
+    };
+
+    // Percent behavior:
+    //  - If there's a previous value & op is + or -, "20%" becomes prev*20/100 (like iPhone)
+    //  - If op is * or / (or no prev), "20%" becomes 0.2
+    const percent = () => {
+      if (current === "" || current === "Error") return;
+
+      const cur = Number(current);
+      if (!Number.isFinite(cur)) { current = "Error"; setDisplay(); return; }
+
+      let out;
+      if (prev !== null && op && (op === "+" || op === "-")) out = prev * (cur / 100);
+      else out = cur / 100;
+
+      current = fmt(out);
+      justEvaluated = false;
+      setDisplay();
+    };
+
+    const equal = () => {
+      if (prev === null || !op) return;
+      const a = prev;
+      const b = Number(current === "" ? "0" : current);
+
+      let r;
+      switch (op) {
+        case "+": r = a + b; break;
+        case "-": r = a - b; break;
+        case "*": r = a * b; break;
+        case "/": r = (b === 0) ? Infinity : a / b; break;
+      }
+
+      current = fmt(r);
+      prev = null;
+      op = null;
+      justEvaluated = true;
+      setDisplay();
+    };
+
+    // click handling
+    document.querySelector(".grid").addEventListener("click", (e) => {
+      const btn = e.target.closest("button");
+      if (!btn) return;
+
+      if (btn.dataset.digit) return inputDigit(btn.dataset.digit);
+      if (btn.dataset.op) return setOp(btn.dataset.op);
+
+      const action = btn.dataset.action;
+      if (action === "ac") return clearAll();
+      if (action === "del") return delOne();
+      if (action === "dot") return inputDot();
+      if (action === "percent") return percent();
+      if (action === "eq") return equal();
+    });
+
+    // init
+    setDisplay();
+
+    // optional: keyboard support
+    window.addEventListener("keydown", (e) => {
+      const k = e.key;
+      if (k >= "0" && k <= "9") inputDigit(k);
+      else if (k === ".") inputDot();
+      else if (k === "Backspace") delOne();
+      else if (k === "Escape") clearAll();
+      else if (k === "Enter" || k === "=") { e.preventDefault(); equal(); }
+      else if (k === "+" || k === "-" || k === "*" || k === "/") setOp(k);
+      else if (k === "%") percent();
+    });
+  </script>
+</body>
 </html>
